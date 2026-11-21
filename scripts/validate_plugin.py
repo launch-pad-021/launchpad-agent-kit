@@ -42,11 +42,14 @@ def frontmatter(path):
 def classify_skill(prompt, descriptions):
     """Deterministic smoke classifier for the documented trigger boundaries."""
     value = prompt.lower()
-    if "milestone" in value and ("plan" in value or "issues" in value) and all(word in descriptions.get("spec-to-issues", "").lower() for word in ("milestone", "plan")):
+    planning_exclusion = any(phrase in value for phrase in ("do not plan", "don't plan", "implement code", "single issue", "one issue", "ad-hoc design", "not an issue plan"))
+    implementation_exclusion = any(phrase in value for phrase in ("do not implement", "don't implement", "not ready", "multiple issues", "implement issues", "review this pr", "review pr"))
+    review_exclusion = any(phrase in value for phrase in ("informally", "informal feedback", "do not use", "don't use", "my own pr", "self-review", "implement fixes", "write fixes"))
+    if not planning_exclusion and "milestone" in value and ("plan" in value or "issues" in value) and all(word in descriptions.get("spec-to-issues", "").lower() for word in ("milestone", "plan")):
         return "spec-to-issues"
-    if "implement" in value and "issue" in value and ("pull request" in value or "pr" in value) and all(word in descriptions.get("implement-issue", "").lower() for word in ("implement", "issue", "pr")):
+    if not implementation_exclusion and "implement" in value and "issue" in value and ("pull request" in value or "pr" in value) and all(word in descriptions.get("implement-issue", "").lower() for word in ("implement", "issue", "pr")):
         return "implement-issue"
-    if "review" in value and ("pull request" in value or re.search(r"\bpr\b", value)) and "gate" in value and all(word in descriptions.get("launchpad-review-gate", "").lower() for word in ("review", "pr", "gate")):
+    if not review_exclusion and "review" in value and ("pull request" in value or re.search(r"\bpr\b", value)) and "gate" in value and all(word in descriptions.get("launchpad-review-gate", "").lower() for word in ("review", "pr", "gate")):
         return "launchpad-review-gate"
     return None
 
