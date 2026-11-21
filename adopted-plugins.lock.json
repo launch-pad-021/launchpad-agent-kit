@@ -1,0 +1,62 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-11-21",
+  "sources": [
+    {
+      "repository": "obra/superpowers",
+      "url": "https://github.com/obra/superpowers",
+      "commit": "22f0b463e7a5e579904dd6211a520321035526f7",
+      "license": "MIT",
+      "redistributed": false,
+      "components": [{"name": "superpowers", "path": "."}],
+      "review": "Instructions, hooks, and bundled helper scripts reviewed. Interactive skills are prohibited in headless Launchpad runs; no upstream executable is copied into this repository."
+    },
+    {
+      "repository": "anthropics/claude-plugins-official",
+      "url": "https://github.com/anthropics/claude-plugins-official",
+      "commit": "73c8cf3ea7e296057b467990f2f5d61b4c922260",
+      "license": "Apache-2.0",
+      "redistributed": false,
+      "components": [
+        {"name": "pr-review-toolkit", "path": "plugins/pr-review-toolkit"},
+        {"name": "code-review", "path": "plugins/code-review"},
+        {"name": "security-guidance", "path": "plugins/security-guidance"},
+        {"name": "feature-dev", "path": "plugins/feature-dev"},
+        {"name": "frontend-design", "path": "plugins/frontend-design"},
+        {"name": "commit-commands", "path": "plugins/commit-commands"},
+        {"name": "skill-creator", "path": "plugins/skill-creator"},
+        {"name": "gopls-lsp", "path": "plugins/gopls-lsp"},
+        {"name": "rust-analyzer-lsp", "path": "plugins/rust-analyzer-lsp"},
+        {"name": "pyright-lsp", "path": "plugins/pyright-lsp"},
+        {"name": "typescript-lsp", "path": "plugins/typescript-lsp"}
+      ],
+      "review": "Plugin manifests, agents, skills, hooks, scripts, and tool declarations reviewed at the pinned tree. Write-capable commit commands are local-only; review agents remain read-only; LSP processes are limited to repository diagnostics."
+    },
+    {
+      "repository": "trailofbits/skills",
+      "url": "https://github.com/trailofbits/skills",
+      "commit": "149d7b21f4067765b82e67029730b42d228ef4b4",
+      "license": "CC-BY-SA-4.0",
+      "redistributed": false,
+      "components": [
+        {"name": "static-analysis", "path": "plugins/static-analysis"},
+        {"name": "variant-analysis", "path": "plugins/variant-analysis"},
+        {"name": "differential-review", "path": "plugins/differential-review"},
+        {"name": "post-patch-validation", "path": "plugins/post-patch-validation"},
+        {"name": "insecure-defaults", "path": "plugins/insecure-defaults"},
+        {"name": "sharp-edges", "path": "plugins/sharp-edges"},
+        {"name": "agentic-actions-auditor", "path": "plugins/agentic-actions-auditor"}
+      ],
+      "review": "Public plugin manifests, instruction files, workflows, scripts, and requested external analyzers reviewed. Analysis runs read-only and only in designated review jobs. fix-review was removed upstream as internal-only; post-patch-validation is the public replacement. No upstream executable is vendored."
+    },
+    {
+      "repository": "anthropics/skills",
+      "url": "https://github.com/anthropics/skills",
+      "commit": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba",
+      "license": "Apache-2.0 (skills/webapp-testing/LICENSE.txt)",
+      "redistributed": false,
+      "components": [{"name": "webapp-testing", "path": "skills/webapp-testing"}],
+      "review": "Skill instructions and with_server.py reviewed. It may launch explicitly supplied local development servers and Playwright; restrict to dashboard UI review with no production credentials or endpoints. No upstream executable is vendored."
+    }
+  ]
+}

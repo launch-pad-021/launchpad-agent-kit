@@ -1,8 +1,16 @@
 ---
 name: implement-issue
-description: Launchpad glue for implementing one Ready issue end to end in one repo and opening a PR with our evidence matrix. Use for every implementation task dispatched by the conductor.
+description: Implement one conductor-dispatched Ready issue in one repository and open its evidence-backed PR. Use when an assigned issue passes readiness. Do not use for planning, review, untracked edits, or multiple issues.
 ---
 # implement-issue (Launchpad glue)
+
+## Trigger boundary
+
+Trigger only for one Ready issue dispatched for implementation. A local edit without an issue, a milestone plan, a review request, or a multi-issue batch does not trigger this skill.
+
+## Evidence sources
+
+Use repository instructions, the assigned issue, its cited spec sections, relevant contracts and code, failing-then-passing tests, and completed verification output. Distinguish observed evidence from claims and list anything not inspected.
 
 This skill only adds Launchpad specifics. Engineering discipline comes from adopted skills — use them as directed below.
 
