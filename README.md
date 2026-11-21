@@ -11,7 +11,8 @@ plugins/launchpad/
   skills/        spec-to-issues, implement-issue, launchpad-review-gate   (Launchpad glue only; engineering skills come from adopted plugins)
   hooks/hooks.json + hooks/scripts/    session-start, guard-bash, guard-paths, stop-checks
 schemas/review.schema.json             # reviewer JSON output (enforced with --json-schema)
-scripts/risk.py + test_risk.py         # deterministic risk classifier (16 tests)
+schemas/risk.schema.json               # deterministic risk classifier output
+scripts/risk.py + test_risk.py         # risk rules and regression tests
 .github/workflows/agent-implement.yml  # reusable: implement one issue
 .github/workflows/agent-review.yml     # reusable: risk + parallel reviewers → commit statuses
 ```
@@ -23,6 +24,22 @@ superpowers, pr-review-toolkit, code-review, security-guidance, feature-dev, fro
 - Install from GitHub: `/plugin install launchpad --marketplace launch-pad-021/launchpad-agent-kit`. Its dependencies resolve only through the SHA-pinned entries in this marketplace.
 - Locally: `claude --plugin-dir ./plugins/launchpad`
 - In CI (claude-code-action@v1): `plugin_marketplaces` lists the official, Trail of Bits and this marketplace (newline-separated); `plugins` lists `launchpad@launchpad-agent-kit` plus the adopted plugins; skills are invoked as `/launchpad:<skill>` or `/superpowers:<skill>`.
+
+## Risk classifier
+
+Run `python3 scripts/risk.py --input evidence.json`, or pass `--input -` to read JSON from stdin. Generate evidence from the reviewed Git diff and trusted checks. Keep issue and PR text out of evidence generation.
+
+| Field | Required evidence |
+| --- | --- |
+| `repo` | The bare repository name, such as `launchpad-deployer`. |
+| `files` | Nonempty array of literal Git paths relative to the repository. Include deleted paths and both sides of renames. Preserve whitespace, quotes, and backslashes. |
+| `diff` | `changed_lines` is the number of added and removed lines. `new_service_call`, `new_event`, and `security_sensitive` are boolean assessments of the diff. `security_sensitive` covers §11.1 security areas outside canonical paths and edits to `versions.env` that are more than version bumps. |
+| `labels` | Array of GitHub label names. The `agent-config` label sets `agent_config` and raises risk to high. Risk labels can only raise the result. |
+| `dependencies` | Array of `{ "name": "…", "change": "…" }` entries. Values for `change` are `new`, `major`, `minor`, `patch`, `removed`, and `unknown`. Use a unique name per dependency and an empty array when no dependencies changed. |
+| `contracts` | `none`, `additive`, `breaking`, or `unknown`. Use the result of the compatibility check for changed contracts. |
+| `migrations` | Object mapping each changed migration path to `non_destructive`, `destructive`, or `unknown`. Use an empty object when no migrations changed. |
+
+Set an unavailable diff assessment to `null`. Missing, invalid, or inconclusive evidence yields `risk/high`. The classifier writes a single JSON report with `level`, `status`, `agent_config`, and `reasons` after validating it against `schemas/risk.schema.json`. The starter CLI options still accept path and label evidence and yield high risk until the complete input is supplied. The starter Python `classify()` function remains available for local callers using partial evidence.
 
 ## Verify
 
