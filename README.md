@@ -7,8 +7,8 @@ Claude Code plugin + reusable workflows for building Launchpad with agents. This
 .claude-plugin/marketplace.json        # this repo is a plugin marketplace with one plugin: "launchpad"
 plugins/launchpad/
   .claude-plugin/plugin.json           # only the manifest lives here
-  agents/        planner, implementer, code-reviewer, correctness-verifier, ci-fixer   (+12 more in A0-06)
-  skills/        spec-to-issues, implement-issue, launchpad-review-gate   (Launchpad glue only; engineering skills come from adopted plugins)
+  agents/        core agents and specialist reviewers, investigators, release and incident roles
+  skills/        spec-to-issues, implement-issue, launchpad-review-gate, release-and-deploy, incident-response
   hooks/hooks.json + hooks/scripts/    session-start, guard-bash, guard-paths, stop-checks
 schemas/review.schema.json             # reviewer JSON output (enforced with --json-schema)
 scripts/risk.py + test_risk.py         # deterministic risk classifier (16 tests)
@@ -24,10 +24,14 @@ superpowers, pr-review-toolkit, code-review, security-guidance, feature-dev, fro
 - Locally: `claude --plugin-dir ./plugins/launchpad`
 - In CI (claude-code-action@v1): `plugin_marketplaces` lists the official, Trail of Bits and this marketplace (newline-separated); `plugins` lists `launchpad@launchpad-agent-kit` plus the adopted plugins; skills are invoked as `/launchpad:<skill>` or `/superpowers:<skill>`.
 
+## Specialist roles
+
+Reviewers inspect supplied diff, test and analysis evidence with read-only tools. The release and incident specialists report a proposed versions.env change and supporting evidence. Their calling workflow owns GitHub writes and deployment gates. The test engineer accepts an assigned branch and caller-enforced test file scope. Reports use the existing reviewer schema.
+
 ## Verify
 
 - `make validate` checks contracts, immutable plugin provenance and dependency wiring, strict Claude manifests, agent/skill discovery, shell syntax, and a clean local plugin load.
-- `make test` runs trigger boundaries, provenance failure cases, offline-first tooling behavior, and the risk classifier.
+- `make test` runs specialist and skill trigger cases, tool-boundary checks, provenance failure cases, offline-first tooling behavior, and the risk classifier.
 - `make verify-provenance` checks every locked commit and component path against GitHub without executing upstream content.
 - For a clean install, set a temporary `CLAUDE_CONFIG_DIR`, install `launchpad` from this marketplace, then run `make verify-install` with the same environment; it checks all installed `gitCommitSha` values against the lock.
 
