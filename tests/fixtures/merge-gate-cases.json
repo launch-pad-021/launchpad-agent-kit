@@ -1,0 +1,22 @@
+[
+  {
+    "name": "low risk current green approved",
+    "evidence": {"agents_enabled": true, "hold": false, "head_matches": true, "up_to_date": true, "unresolved_threads": 0, "risk": "low", "developer_approved": false, "agent_config": false, "ci": {"CI / build": "success", "CI / lint": "success", "CI / types": "success", "CI / tests": "success", "CI / security": "success", "CI / contracts": "success"}, "selected_reviewers": ["code-reviewer", "correctness-verifier"], "reviews": {"code-reviewer": "approve", "correctness-verifier": "approve"}},
+    "allowed": true
+  },
+  {
+    "name": "red CI blocks",
+    "evidence": {"agents_enabled": true, "hold": false, "head_matches": true, "up_to_date": true, "unresolved_threads": 0, "risk": "low", "developer_approved": false, "agent_config": false, "ci": {"CI / build": "success", "CI / lint": "failure", "CI / types": "success", "CI / tests": "success", "CI / security": "success", "CI / contracts": "success"}, "selected_reviewers": ["code-reviewer", "correctness-verifier"], "reviews": {"code-reviewer": "approve", "correctness-verifier": "approve"}},
+    "allowed": false
+  },
+  {
+    "name": "high risk requires developer",
+    "evidence": {"agents_enabled": true, "hold": false, "head_matches": true, "up_to_date": true, "unresolved_threads": 0, "risk": "high", "developer_approved": false, "agent_config": false, "ci": {"CI / build": "success", "CI / lint": "success", "CI / types": "success", "CI / tests": "success", "CI / security": "success", "CI / contracts": "success"}, "selected_reviewers": ["code-reviewer", "correctness-verifier"], "reviews": {"code-reviewer": "approve", "correctness-verifier": "approve"}},
+    "allowed": false
+  },
+  {
+    "name": "agent config never auto merges",
+    "evidence": {"agents_enabled": true, "hold": false, "head_matches": true, "up_to_date": true, "unresolved_threads": 0, "risk": "high", "developer_approved": true, "agent_config": true, "ci": {"CI / build": "success", "CI / lint": "success", "CI / types": "success", "CI / tests": "success", "CI / security": "success", "CI / contracts": "success"}, "selected_reviewers": ["code-reviewer", "correctness-verifier"], "reviews": {"code-reviewer": "approve", "correctness-verifier": "approve"}},
+    "allowed": false
+  }
+]

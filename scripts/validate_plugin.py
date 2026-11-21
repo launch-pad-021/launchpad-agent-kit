@@ -7,8 +7,62 @@ import sys
 from pathlib import Path
 
 
-AGENTS = {"planner", "implementer", "code-reviewer", "correctness-verifier", "ci-fixer"}
-SKILLS = {"spec-to-issues", "implement-issue", "launchpad-review-gate"}
+CORE_AGENTS = {"planner", "implementer", "code-reviewer", "correctness-verifier", "ci-fixer"}
+OPERATIONAL_SKILLS = {"release-and-deploy", "incident-response"}
+SKILLS = {"spec-to-issues", "implement-issue", "launchpad-review-gate"} | OPERATIONAL_SKILLS
+SPECIALIST_TRIGGERS = {
+    "pull_request": {
+        "security-auditor": {"security path", "auth", "input handling", "new endpoint"},
+        "architecture-reviewer": {"contract", "new service", "new dependency", "data ownership"},
+        "database-reviewer": {"migration", "sql", "clickhouse schema"},
+        "product-design-reviewer": {"dashboard ui"},
+        "documentation-auditor": {"api change", "config change", "behavior change"},
+        "dependency-supply-chain-auditor": {"dependency pr"},
+    },
+    "weekly": {
+        "security-auditor": {"security scan"},
+        "documentation-auditor": {"documentation sweep"},
+        "dependency-supply-chain-auditor": {"advisory sweep"},
+    },
+    "agent handoff": {
+        "test-engineer": {"test handoff"},
+        "debugging-investigator": {"incident investigation"},
+    },
+    "issue": {
+        "test-engineer": {"coverage gap"},
+        "debugging-investigator": {"bug issue"},
+        "performance-investigator": {"perf-labelled issue"},
+    },
+    "alert": {
+        "performance-investigator": {"performance regression"},
+        "incident-responder": {"production alert"},
+    },
+    "release": {
+        "release-manager": {"image is published", "deploy finished"},
+        "incident-responder": {"failed verification"},
+    },
+    "request": {"technical-researcher": {"latest or best", "primary-source adr"}},
+}
+SPECIALISTS = {role for event in SPECIALIST_TRIGGERS.values() for role in event}
+AGENTS = CORE_AGENTS | SPECIALISTS
+SPECIALIST_MODELS = {
+    "security-auditor": "opus",
+    "architecture-reviewer": "opus",
+    "database-reviewer": "sonnet",
+    "product-design-reviewer": "sonnet",
+    "documentation-auditor": "haiku",
+    "dependency-supply-chain-auditor": "haiku",
+    "performance-investigator": "sonnet",
+    "debugging-investigator": "sonnet",
+    "release-manager": "sonnet",
+    "incident-responder": "opus",
+    "technical-researcher": "sonnet",
+    "test-engineer": "sonnet",
+}
+REVIEW_GATE = "launchpad:launchpad-review-gate"
+VERIFY = "superpowers:verification-before-completion"
+DEBUG = "superpowers:systematic-debugging"
+WEB_SPECIALISTS = {"technical-researcher", "dependency-supply-chain-auditor"}
 REVIEWERS = {"code-reviewer", "correctness-verifier"}
 SHA = re.compile(r"^[0-9a-f]{40}$")
 EXPECTED_COMPONENTS = {
@@ -22,7 +76,19 @@ AGENT_SKILLS = {
     "implementer": {"implement-issue", "superpowers:test-driven-development", "superpowers:systematic-debugging", "superpowers:verification-before-completion", "superpowers:receiving-code-review"},
     "ci-fixer": {"superpowers:systematic-debugging", "superpowers:verification-before-completion"},
     "code-reviewer": {"launchpad-review-gate"},
-    "correctness-verifier": {"launchpad-review-gate", "superpowers:verification-before-completion"},
+    "correctness-verifier": {"launchpad-review-gate", VERIFY},
+    "security-auditor": {REVIEW_GATE, "differential-review:differential-review", "sharp-edges:sharp-edges"},
+    "architecture-reviewer": {REVIEW_GATE},
+    "database-reviewer": {REVIEW_GATE, VERIFY},
+    "product-design-reviewer": {REVIEW_GATE, "frontend-design:frontend-design"},
+    "documentation-auditor": {REVIEW_GATE, VERIFY},
+    "dependency-supply-chain-auditor": {REVIEW_GATE, VERIFY},
+    "performance-investigator": {DEBUG, VERIFY},
+    "debugging-investigator": {DEBUG},
+    "release-manager": {"launchpad:release-and-deploy", VERIFY},
+    "incident-responder": {"launchpad:incident-response", DEBUG},
+    "technical-researcher": {VERIFY},
+    "test-engineer": {"superpowers:test-driven-development", VERIFY},
 }
 
 
@@ -33,9 +99,12 @@ def frontmatter(path):
     header, body = text[4:].split("\n---\n", 1)
     values = {}
     for line in header.splitlines():
-        if ":" in line:
-            key, value = line.split(":", 1)
-            values[key.strip()] = value.strip()
+        key, separator, value = line.partition(":")
+        if not separator or not re.fullmatch(r"[a-zA-Z][a-zA-Z0-9-]*", key):
+            raise ValueError(f"unsupported frontmatter line: {line}")
+        if key in values:
+            raise ValueError(f"duplicate frontmatter field: {key}")
+        values[key] = value.strip()
     return values, body
 
 
@@ -51,7 +120,60 @@ def classify_skill(prompt, descriptions):
         return "implement-issue"
     if not review_exclusion and "review" in value and ("pull request" in value or re.search(r"\bpr\b", value)) and "gate" in value and all(word in descriptions.get("launchpad-review-gate", "").lower() for word in ("review", "pr", "gate")):
         return "launchpad-review-gate"
+    operational_exclusion = any(
+        phrase in value for phrase in ("do not", "don't", "tabletop", "preview", "customer app", "user app", "staging")
+    )
+    if "launchpad" in value and not operational_exclusion:
+        incident = descriptions.get("incident-response", "").lower()
+        if "production alert" in incident and "post-deploy verification" in incident and (
+            ("production alert" in value and "notifier" in value)
+            or ("post-deploy verification" in value and "failed" in value)
+        ):
+            return "incident-response"
+        release = descriptions.get("release-and-deploy", "").lower()
+        if "platform image" in release and "infra-sync deploy" in release and (
+            ("published platform image" in value and "versions.env" in value)
+            or ("verify" in value and "platform deploy" in value and "infra-sync" in value)
+        ):
+            return "release-and-deploy"
     return None
+
+
+def classify_specialists(event, conditions, descriptions, *, trusted=True):
+    """Exercise documented specialist triggers with fixture facts, without dispatching agents."""
+    if not trusted:
+        return set()
+    conditions = {condition.lower() for condition in conditions}
+    selected = set()
+    for role, triggers in SPECIALIST_TRIGGERS.get(event, {}).items():
+        description = descriptions.get(role, "").lower()
+        use_clause = description.partition("do not use")[0]
+        if any(re.search(rf"\b{re.escape(trigger)}\b", use_clause) for trigger in conditions & triggers):
+            selected.add(role)
+    return selected
+
+
+def specialist_errors(name, fields, body):
+    errors = []
+    for field in sorted(fields.keys() - {"name", "description", "tools", "model", "skills"}):
+        errors.append(f"unsupported frontmatter field: {field}")
+    description = fields.get("description", "")
+    if "Use when" not in description or "Do not use" not in description:
+        errors.append("description needs narrow Use when/Do not use triggers")
+    if fields.get("model") != SPECIALIST_MODELS[name]:
+        errors.append("model does not match the specified tier")
+
+    allowed = {"Read", "Grep", "Glob"}
+    if name in WEB_SPECIALISTS:
+        allowed |= {"WebSearch", "WebFetch"}
+    if name == "test-engineer":
+        allowed |= {"Edit", "Write"}
+    tools = {tool.strip() for tool in fields.get("tools", "").split(",")}
+    if tools != allowed:
+        errors.append("tool allowlist must match the test-only role" if name == "test-engineer" else "role must use only its read-only tools")
+    if name != "test-engineer" and "read-only" not in body.lower():
+        errors.append("role boundary is not read-only")
+    return errors
 
 
 def validate(root):
@@ -68,6 +190,7 @@ def validate(root):
     actual_agents = {path.stem for path in agent_dir.glob("*.md")}
     if actual_agents != AGENTS:
         errors.append(f"agent roster must be {sorted(AGENTS)}, got {sorted(actual_agents)}")
+    agent_descriptions = {}
     for name in sorted(actual_agents):
         path = agent_dir / f"{name}.md"
         try:
@@ -75,6 +198,11 @@ def validate(root):
         except ValueError as exc:
             errors.append(f"{path.relative_to(root)}: {exc}")
             continue
+        agent_descriptions[name] = fields.get("description", "")
+        if fields.get("name") != name:
+            errors.append(f"{path.relative_to(root)}: frontmatter name must be {name}")
+        if name in SPECIALISTS:
+            errors.extend(f"{path.relative_to(root)}: {error}" for error in specialist_errors(name, fields, body))
         for field in ("name", "description", "tools", "model"):
             if not fields.get(field):
                 errors.append(f"{path.relative_to(root)}: missing {field}")
@@ -99,6 +227,7 @@ def validate(root):
     actual_skills = {path.parent.name for path in skill_dir.glob("*/SKILL.md")}
     if actual_skills != SKILLS:
         errors.append(f"skill roster must be {sorted(SKILLS)}, got {sorted(actual_skills)}")
+    descriptions = {}
     for name in sorted(actual_skills):
         path = skill_dir / name / "SKILL.md"
         try:
@@ -107,6 +236,10 @@ def validate(root):
             errors.append(f"{path.relative_to(root)}: {exc}")
             continue
         description = fields.get("description", "")
+        descriptions[name] = description
+        if name in OPERATIONAL_SKILLS:
+            for field in sorted(fields.keys() - {"name", "description"}):
+                errors.append(f"{path.relative_to(root)}: unsupported frontmatter field: {field}")
         if fields.get("name") != name:
             errors.append(f"{path.relative_to(root)}: frontmatter name must be {name}")
         if "Use when" not in description or "Do not use" not in description:
@@ -116,12 +249,21 @@ def validate(root):
 
     try:
         cases = json.loads((root / "tests/fixtures/skill-triggers.json").read_text())
-        descriptions = {name: frontmatter(skill_dir / name / "SKILL.md")[0].get("description", "") for name in actual_skills}
         for case in cases:
             if classify_skill(case["prompt"], descriptions) != case["expected"]:
                 errors.append(f"skill trigger mismatch: {case['prompt']}")
     except (OSError, json.JSONDecodeError, KeyError) as exc:
         errors.append(f"skill trigger fixtures invalid: {exc}")
+
+    try:
+        cases = json.loads((root / "tests/fixtures/specialist-triggers.json").read_text())
+        for case in cases:
+            event, conditions = case["event"], case["conditions"]
+            selected = classify_specialists(event, conditions, agent_descriptions, trusted=case.get("trusted", True))
+            if selected != set(case["expected"]):
+                errors.append(f"specialist trigger mismatch: {event}, {conditions}: got {sorted(selected)}")
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        errors.append(f"specialist trigger fixtures invalid: {exc}")
 
     try:
         lock = json.loads((root / "adopted-plugins.lock.json").read_text())

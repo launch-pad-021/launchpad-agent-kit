@@ -1,11 +1,14 @@
-#!/usr/bin/env bash
-# PreToolUse(Edit|Write|MultiEdit): agents may not change their own guardrails or secrets.
-set -euo pipefail
-path=$(jq -r '.tool_input.file_path // .tool_input.path // ""')
-rel=${path#"${CLAUDE_PROJECT_DIR:-$PWD}/"}
-case "$rel" in
-  .github/*|.claude/*|CLAUDE.md|AGENTS.md|CODEOWNERS|*/CODEOWNERS|renovate.json|*.pem|*.key|.env|.env.*|secrets/*)
-    echo "Blocked by launchpad guard-paths: '$rel' is a protected path (agent config or secrets). Open an issue labelled agent-config describing the change instead." >&2
-    exit 2;;
+#!/bin/sh
+# Claude treats ordinary nonzero exit codes as non-blocking hook errors.
+hook=${0##*/}
+runtime=$(dirname "$0")/hook.py
+if [ -r "$runtime" ] && command -v python3 >/dev/null 2>&1; then
+    python3 -I -B "$runtime" "$hook"
+    status=$?
+    case $status in 0) exit 0;; 20) exit 2;; esac
+fi
+case $hook in
+    session-start.sh) echo '{"continue":false,"stopReason":"Launchpad hook runtime failed."}';;
+    stop-checks.sh) echo '{"decision":"block","reason":"Launchpad hook runtime failed."}';;
+    *) echo 'Launchpad guard runtime failed.' >&2; exit 2;;
 esac
-exit 0

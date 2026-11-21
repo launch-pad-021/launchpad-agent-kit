@@ -12,15 +12,18 @@ Trigger only for an assigned pull request and explicit reviewer role in the Laun
 
 Use the base-to-head diff, linked issue criteria, applicable contracts/specs, completed CI runs, and role-specific analyzer output. Every finding needs file/line evidence, a concrete trigger and impact; record checks and uninspected areas.
 
-1. Determine your reviewer role from the prompt (code, security, design, database, docs, deps, correctness).
+1. Determine your reviewer role from the prompt (code, security, architecture, design, database, docs, deps, correctness).
 2. Apply the matching adopted review method to the PR diff (`origin/<base>...HEAD`). The calling workflow runs adopted specialist agents in separate read-only jobs and may supply their evidence; this skill does not spawn nested agents:
    | Role | Use |
    |---|---|
    | code | `pr-review-toolkit` agents (code, tests, silent failures, types) + `code-review` |
    | security | Trail of Bits `differential-review`, `insecure-defaults`, `sharp-edges`; `security-guidance` review; check `specs/08-security.md` controls for touched areas |
    | agent-config | Trail of Bits `agentic-actions-auditor` on changed workflows |
+   | architecture | Supplied feature-dev code-explorer and code-architect evidence, applicable architecture and contract specs |
    | design | `frontend-design` principles + `webapp-testing` screenshots at 375/768/1280 |
    | database | `specs/05-data.md` §6 expand/contract rules; `EXPLAIN` evidence for query changes |
+   | docs | README, API, configuration and behavior evidence per specs/03-conventions.md and the service spec |
+   | deps | Manifest and lockfile diff, upstream advisory, license and provenance evidence |
    | correctness | map each acceptance criterion in the linked issue to a test and a passing CI job (superpowers `verification-before-completion` standard) |
 3. Add Launchpad checks the adopted tools don't know: conformance to `contracts/` and `specs/03-conventions.md` (errors, envelope, outbox, config, logging), and the service spec's acceptance criteria.
 4. Keep only findings with a concrete file/line, trigger and impact. Drop low-confidence findings rather than guessing.

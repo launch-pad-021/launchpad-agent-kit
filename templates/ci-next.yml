@@ -1,0 +1,60 @@
+name: CI
+on: [pull_request, push]
+permissions: {contents: read}
+concurrency: {group: "ci-${{ github.repository }}-${{ github.ref }}", cancel-in-progress: true}
+jobs:
+  build:
+    name: CI / build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with: {node-version: 26, cache: npm}
+      - run: npm ci && npm run build
+  lint:
+    name: CI / lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: npm ci && npm exec eslint .
+  types:
+    name: CI / types
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: npm ci && npm exec tsc --noEmit
+  tests:
+    name: CI / tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: npm ci && npm exec vitest run --coverage
+  security:
+    name: CI / security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: npm audit --omit=dev && gitleaks detect --no-banner && semgrep scan --config p/default && hadolint Dockerfile && trivy fs --exit-code 1 . && actionlint && npx --yes commitlint --from origin/main --to HEAD
+  contracts:
+    name: CI / contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: if test -f buf.yaml; then buf lint && buf breaking --against 'https://github.com/${{ github.repository }}.git#branch=main'; else echo 'no proto contracts'; fi
+  ui:
+    name: CI / UI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: npm ci && npm exec playwright install --with-deps chromium && npm exec playwright test
+        env: {LP_SCREENSHOT_WIDTHS: '375,768,1280', LP_ACCESSIBILITY_ENGINE: axe}
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with: {name: ui-evidence, path: test-results, retention-days: 30}

@@ -1,0 +1,12 @@
+[
+  {
+    "name": "baseline",
+    "evidence": {"files": ["README.md"], "risk": "low", "new_dependency": false, "dependency_pr": false, "new_endpoint": false, "api_or_behavior": false},
+    "expected": ["code-reviewer", "correctness-verifier"]
+  },
+  {
+    "name": "all specialists are stable and unique",
+    "evidence": {"files": ["src/auth/login.go", "proto/api.proto", "migrations/001.sql", "dashboard/page.tsx", "README.md", "package.json"], "risk": "high", "new_dependency": true, "dependency_pr": true, "new_endpoint": true, "api_or_behavior": true},
+    "expected": ["code-reviewer", "correctness-verifier", "security-auditor", "architecture-reviewer", "database-reviewer", "product-design-reviewer", "documentation-auditor", "dependency-supply-chain-auditor"]
+  }
+]

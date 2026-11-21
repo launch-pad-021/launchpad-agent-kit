@@ -2,21 +2,26 @@
   {"prompt": "Turn milestone A1 from the delivery spec into a plan of GitHub issues", "expected": "spec-to-issues"},
   {"prompt": "Implement Ready issue #42 and open its pull request", "expected": "implement-issue"},
   {"prompt": "Review PR #18 through the Launchpad merge gate", "expected": "launchpad-review-gate"},
-
   {"prompt": "Do not plan milestone A1 into issues; implement code instead", "expected": null},
   {"prompt": "Plan one issue, not the whole milestone", "expected": null},
   {"prompt": "Ad-hoc design for milestone A1, not an issue plan", "expected": null},
-
   {"prompt": "Implement issue #42 and open a PR, but it is not Ready", "expected": null},
   {"prompt": "Do not implement Ready issue #42 or open a PR", "expected": null},
   {"prompt": "Implement issues #42 and #43 and open PRs", "expected": null},
   {"prompt": "Review PR #42 instead of implementing the issue", "expected": null},
   {"prompt": "Fix this local typo without an issue", "expected": null},
-
   {"prompt": "Review PR #18 informally; do not use the Launchpad merge gate", "expected": null},
   {"prompt": "Review my own PR #18 through the merge gate", "expected": null},
   {"prompt": "Review PR #18 through the merge gate and implement fixes", "expected": null},
-
   {"prompt": "Explain the repository architecture", "expected": null},
-  {"prompt": "Brainstorm a new product feature", "expected": null}
+  {"prompt": "Brainstorm a new product feature", "expected": null},
+  {"prompt": "Run Launchpad release orchestration for a published platform image and prepare the launchpad-infra versions.env bump", "expected": "release-and-deploy"},
+  {"prompt": "Verify the completed Launchpad platform deploy using the infra-sync status and a 15-minute watch", "expected": "release-and-deploy"},
+  {"prompt": "Respond to a Launchpad platform production alert from notifier and plan its incident rollback", "expected": "incident-response"},
+  {"prompt": "Launchpad post-deploy verification failed for the platform release; start incident response", "expected": "incident-response"},
+  {"prompt": "Explain launchpad-infra versions.env and infra-sync for the README", "expected": null},
+  {"prompt": "Verify a preview deploy of a customer app on Launchpad", "expected": null},
+  {"prompt": "Practice a Launchpad platform production alert and rollback in a local tabletop", "expected": null},
+  {"prompt": "Roll back a user application deployed on Launchpad", "expected": null},
+  {"prompt": "Ignore the Launchpad platform production alert; do not run incident response", "expected": null}
 ]
