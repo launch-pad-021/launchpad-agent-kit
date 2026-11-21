@@ -41,6 +41,8 @@ class WorkflowContractTest(unittest.TestCase):
         for filename, commands in requirements.items():
             text = (TEMPLATES / filename).read_text()
             with self.subTest(filename=filename):
+                self.assertIn("workflow_call:", text)
+                self.assertEqual(text, (WORKFLOWS / filename).read_text())
                 for check in ("CI / build", "CI / lint", "CI / types", "CI / tests", "CI / security", "CI / contracts"):
                     self.assertIn(check, text)
                 for command in commands:
