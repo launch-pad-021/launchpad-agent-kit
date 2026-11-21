@@ -1,8 +1,16 @@
 ---
 name: spec-to-issues
-description: Turn a Launchpad milestone from specs/11-delivery-plan.md into a milestone plan of PR-sized, testable issues. Use when planning a milestone; not for implementation.
+description: Turn one Launchpad delivery milestone into a plan of PR-sized testable issues. Use when a milestone is selected for planning. Do not use for implementation, ad-hoc design, or single-issue editing.
 ---
 # spec-to-issues
+
+## Trigger boundary
+
+Trigger only when the requested output is a milestone plan derived from the Launchpad spec pack. A request to implement, brainstorm, explain, or edit one issue does not trigger this skill.
+
+## Evidence sources
+
+Use `specs/11-delivery-plan.md`, its cited service specs, `specs/03-conventions.md`, `specs/10-testing.md`, and the current GitHub issue list. Record exact spec sections for every derived acceptance criterion and identify sources not inspected.
 
 Use superpowers `writing-plans` for how to structure tasks (exact files, verification steps, small increments); this skill adds Launchpad's sources, issue format and risk rules.
 

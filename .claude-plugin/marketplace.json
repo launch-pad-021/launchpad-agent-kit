@@ -1,6 +1,7 @@
 {
   "name": "launchpad-agent-kit",
-  "owner": { "name": "LP_ORG" },
+  "description": "Pinned Launchpad agents, skills, and guardrails for agentic development",
+  "owner": { "name": "launch-pad-021" },
   "plugins": [
     {
       "name": "launchpad",

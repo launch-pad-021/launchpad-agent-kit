@@ -17,17 +17,20 @@ scripts/risk.py + test_risk.py         # deterministic risk classifier (16 tests
 ```
 
 ## Adopted plugins (not copied here)
-superpowers, pr-review-toolkit, code-review, security-guidance, feature-dev, frontend-design, commit-commands, skill-creator, LSP plugins (all `@claude-plugins-official`); Trail of Bits `static-analysis`, `variant-analysis`, `differential-review`, `fix-review`, `insecure-defaults`, `sharp-edges`, `agentic-actions-auditor`; `anthropics/skills` `webapp-testing`. See `launchpad-meta/specs/12-agentic-system.md` §8.
+superpowers, pr-review-toolkit, code-review, security-guidance, feature-dev, frontend-design, commit-commands, skill-creator, LSP plugins (all `@claude-plugins-official`); Trail of Bits `static-analysis`, `variant-analysis`, `differential-review`, `post-patch-validation`, `insecure-defaults`, `sharp-edges`, `agentic-actions-auditor`; `anthropics/skills` `webapp-testing`. Upstream removed `fix-review`; see `ADOPTED_PLUGINS.md` for the reviewed resolution and immutable pins.
 
 ## Use
+- Install from GitHub: `/plugin install launchpad --marketplace launch-pad-021/launchpad-agent-kit`
 - Locally: `claude --plugin-dir ./plugins/launchpad`
 - In CI (claude-code-action@v1): `plugin_marketplaces` lists the official, Trail of Bits and this marketplace (newline-separated); `plugins` lists `launchpad@launchpad-agent-kit` plus the adopted plugins; skills are invoked as `/launchpad:<skill>` or `/superpowers:<skill>`.
 
-## Verify during A0
-- Exact plugin and marketplace names for the adopted set (`/plugin` → browse), and pin them.
-- Marketplace/plugin JSON fields against https://code.claude.com/docs/en/plugin-marketplaces and plugins-reference.
-- Subagent frontmatter (`tools`, `model`) against https://code.claude.com/docs/en/sub-agents.
-- The claude-code-action structured-output output name used in `agent-review.yml`.
-- `scripts/test_risk.py`: `python3 -m pytest -q scripts/`.
+## Verify
+
+- `make validate` checks contracts, immutable plugin provenance, strict Claude manifests, agent/skill discovery, shell syntax, and a clean local plugin load.
+- `make test` runs trigger boundaries, provenance failure cases, offline-first tooling behavior, and the risk classifier.
+
+## Pinned third-party inputs
+
+See `ADOPTED_PLUGINS.md` and `adopted-plugins.lock.json`. The lock records immutable upstream commits, licenses, reviewed executable surfaces, and the resolution for Trail of Bits' removed `fix-review` plugin.
 
 Changes to this repo are `agent-config`: only the developer merges.

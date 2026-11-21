@@ -1,0 +1,8 @@
+[
+  {"prompt": "Turn milestone A1 from the delivery spec into a plan of GitHub issues", "expected": "spec-to-issues"},
+  {"prompt": "Implement Ready issue #42 and open its pull request", "expected": "implement-issue"},
+  {"prompt": "Review PR #18 through the Launchpad merge gate", "expected": "launchpad-review-gate"},
+  {"prompt": "Explain the repository architecture", "expected": null},
+  {"prompt": "Fix this local typo without an issue", "expected": null},
+  {"prompt": "Brainstorm a new product feature", "expected": null}
+]
