@@ -68,7 +68,10 @@ class HookTests(unittest.TestCase):
 
     def tool(self, hook, content, role="launchpad:implementer"):
         key = "command" if hook == "guard-bash" else "file_path"
-        return self.invoke(hook, role, tool_input={key: content})
+        inputs = {key: content}
+        if hook == "guard-paths":
+            inputs["content"] = "sample"
+        return self.invoke(hook, role, tool_input=inputs)
 
     def test_executable_entry_points(self):
         for hook in EVENTS:
@@ -156,7 +159,7 @@ class HookTests(unittest.TestCase):
         target = self.repo / "src/scoped.go"
         target.write_text("package scoped\n")
         self.stub("gofmt", 'test "$1" = -w && echo formatted >> "$2"')
-        result = self.invoke("guard-paths", hook_event_name="PostToolUse", tool_input={"file_path": str(target)})
+        result = self.invoke("guard-paths", hook_event_name="PostToolUse", tool_input={"file_path": str(target), "content": "package scoped"})
         self.assertEqual(result.returncode, 0)
         self.assertIn("formatted", target.read_text())
 
@@ -167,10 +170,10 @@ class HookTests(unittest.TestCase):
 
     def test_session_context(self):
         self.stub("gh", """case "$1 $2" in
-          'issue view') echo '{"title":"Review map","body":"Check the map"}';;
+          api*) echo '{"author_association":"OWNER","title":"Review map","body":"Check the map"}';;
           'pr list') echo '[{"number":42}]';;
-          'pr view') echo '{"comments":[{"authorAssociation":"OWNER","body":"### Handoff — run 1\nmap ready"}]}' | tr '\n' ' ';;
-        esac""".replace("run 1\nmap ready", "run 1; map ready"))
+          'pr view') echo '{"comments":[{"authorAssociation":"OWNER","body":"### Handoff — run 1; map ready"}]}';;
+        esac""")
         (self.repo / "src").mkdir()
         result = self.invoke("session-start")
         for item in ("12", "src", "Review map", "map ready"):
@@ -180,7 +183,7 @@ class HookTests(unittest.TestCase):
 
     def test_session_redacts_secret_like_output(self):
         self.stub("gh", """case "$1 $2" in
-          'issue view') echo '{"title":"Issue","body":"TOKEN=synthetic-marker"}';;
+          api*) echo '{"author_association":"OWNER","title":"Issue","body":"TOKEN=synthetic-marker"}';;
           'pr list') echo '[]';;
         esac""")
         result = self.invoke("session-start")
@@ -213,3 +216,125 @@ class HookTests(unittest.TestCase):
         self.env["LP_HOOK_TIMEOUT_SECONDS"] = "1"
         (self.repo / "Makefile").write_text("test validate:\n\t@sleep 20\n")
         self.assert_blocked(self.invoke("stop-checks"), "stop-checks")
+
+    def test_edit_payload_validation_and_redaction(self):
+        for tool, inputs, allowed in (
+            ("Write", {"file_path": "a.txt"}, False),
+            ("Write", {"file_path": "a.txt", "content": "PASSWORD=synthetic-marker"}, False),
+            ("Edit", {"file_path": "a.txt", "new_string": ""}, False),
+            ("Edit", {"file_path": "a.txt", "new_string": "ok", "old_string": "old"}, True),
+            ("MultiEdit", {"file_path": "a.txt", "edits": []}, False),
+            ("MultiEdit", {"file_path": "a.txt", "edits": [{"old_string": "x", "new_string": "y"}]}, True),
+        ):
+            with self.subTest(tool=tool, keys=list(inputs)):
+                result = self.invoke("guard-paths", tool_name=tool, tool_input=inputs)
+                if allowed:
+                    self.assertEqual(result.returncode, 0)
+                else:
+                    self.assert_blocked(result, "guard-paths")
+
+    def test_stop_redacts_final_message_and_checks_each_changed_language(self):
+        (self.repo / "Makefile").write_text("test validate:\n\t@true\n")
+        result = self.invoke("stop-checks", last_assistant_message="PASSWORD=synthetic-marker")
+        self.assert_blocked(result, "stop-checks")
+        for package, manifest in (("backend", "go.mod"), ("worker", "Cargo.toml"),
+                                  ("client", "package.json"), ("batch", "pyproject.toml")):
+            root = self.repo / package
+            root.mkdir()
+            (root / manifest).touch()
+        for name in ("go", "gofmt", "cargo", "npx", "uv"):
+            self.stub(name, 'echo "${0##*/} $*" >> ran')
+        result = self.invoke("stop-checks")
+        self.assertEqual((result.returncode, result.stdout), (0, ""))
+        for package, expected in {
+            "backend": ("gofmt", "go vet", "go test"), "worker": ("cargo fmt", "cargo clippy", "cargo test"),
+            "client": ("prettier", "eslint", "tsc", "vitest"), "batch": ("ruff format", "ruff check", "pyright", "pytest"),
+        }.items():
+            with self.subTest(package=package):
+                log = (self.repo / package / "ran").read_text()
+                for name in expected:
+                    self.assertIn(name, log)
+
+    def test_context_is_a_git_workspace_and_json_is_strict(self):
+        self.env["CLAUDE_PROJECT_DIR"] = str(self.temp)
+        result = self.invoke("guard-bash", cwd=str(self.temp), tool_input={"command": "pwd"})
+        self.assert_blocked(result, "guard-bash")
+        self.env["CLAUDE_PROJECT_DIR"] = str(self.repo)
+        raw = json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash", "agent_type": "implementer",
+                          "cwd": str(self.repo), "tool_input": {"command": "pwd"}, "extra": float("nan")})
+        self.assert_blocked(self.invoke("guard-bash", raw=raw), "guard-bash")
+
+    def test_git_write_scope_and_safe_read_arguments(self):
+        path = self.repo / "src.txt"
+        path.write_text("test")
+        results = (("git add -- src.txt", True), ("git diff -- src.txt", True),
+                   ("git push --force-with-lease origin main", False), ("git push origin HEAD:main", False),
+                   ("git add -- .", False), ("git diff -- .env.local", False))
+        for command, allowed in results:
+            with self.subTest(command=command):
+                self.assertEqual(self.tool("guard-bash", command).returncode, 0 if allowed else 2)
+        subprocess.run(["git", "add", "src.txt"], cwd=self.repo, check=True)
+        self.assertEqual(self.tool("guard-bash", "git commit -m 'test: document scope'").returncode, 0)
+        (self.repo / ".github").mkdir()
+        (self.repo / ".github/x").touch()
+        subprocess.run(["git", "add", ".github/x"], cwd=self.repo, check=True)
+        self.assert_blocked(self.tool("guard-bash", "git commit -m 'test: verify staging'"), "guard-bash")
+
+    def test_untrusted_issue_and_handoff(self):
+        self.stub("gh", """case "$1 $2" in
+          api*) echo '{"author_association":"NONE","title":"synthetic-marker"}';;
+          'pr list') echo '[]';;
+        esac""")
+        self.assert_blocked(self.invoke("session-start"), "session-start")
+        self.stub("gh", """case "$1 $2" in
+          api*) echo '{"author_association":"OWNER","title":"Source","body":"Notes"}';;
+          'pr list') echo '[{"number":42}]';;
+          'pr view') echo '{"comments":[{"authorAssociation":"NONE","author":{"login":"other[bot]"},"body":"### Handoff synthetic-marker"}]}';;
+        esac""")
+        result = self.invoke("session-start")
+        self.assertIn("No prior handoff", result.stdout)
+        self.assertNotIn("synthetic-marker", result.stdout + result.stderr)
+
+    def test_runtime_startup_failure_has_event_specific_decision(self):
+        self.stub("python3", "exit 2")
+        for hook in EVENTS:
+            with self.subTest(hook=hook):
+                self.assert_blocked(self.invoke(hook), hook)
+
+    def test_project_commands_and_github_argument_boundaries(self):
+        for command in ("echo 'checks complete'", "ls -l", "git branch --show-current", "git rev-parse HEAD",
+                        "git switch -c agent/12-new", "gh issue view 12 --json title,body",
+                        "gh pr view 4 --comments", "gh issue list", "gh pr create --fill",
+                        "gh pr create --title 'Safe change' --body 'Ran checks'", "uv sync --frozen",
+                        "cargo fetch --locked", "go mod download", "uv run pytest", "buf lint"):
+            with self.subTest(command=command):
+                self.assertEqual(self.tool("guard-bash", command).returncode, 0)
+        for command in ("echo PASSWORD=synthetic-marker", "gh pr create --body-file credentials",
+                        "gh api arbitrary", "gh pr view --repo other/repo", "git switch -c agent/99-other",
+                        "git log --output=marker", "git status --git-dir elsewhere", "git commit --amend",
+                        "npm ci --script-shell other"):
+            with self.subTest(command=command):
+                self.assert_blocked(self.tool("guard-bash", command), "guard-bash")
+        for role, cmd, allowed in (("correctness-verifier", "go test ./...", True),
+                                   ("code-reviewer", "go test ./...", False),
+                                   ("code-reviewer", "npm ci --ignore-scripts", False),
+                                   ("planner", "go mod download", False)):
+            with self.subTest(role=role, cmd=cmd):
+                self.assertEqual(self.tool("guard-bash", cmd, role).returncode, 0 if allowed else 2)
+
+    def test_feature_branch_push_checks_committed_paths(self):
+        def git(*args):
+            subprocess.run(["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", *args],
+                           cwd=self.repo, check=True, capture_output=True)
+        git("commit", "--allow-empty", "-m", "base")
+        git("update-ref", "refs/remotes/origin/main", "HEAD")
+        (self.repo / "code.txt").touch()
+        git("add", "code.txt")
+        git("commit", "-m", "change")
+        command = "git push -u origin agent/12-hook"
+        self.assertEqual(self.tool("guard-bash", command).returncode, 0)
+        (self.repo / ".github").mkdir()
+        (self.repo / ".github/check.yml").touch()
+        git("add", ".github/check.yml")
+        git("commit", "-m", "config")
+        self.assert_blocked(self.tool("guard-bash", command), "guard-bash")

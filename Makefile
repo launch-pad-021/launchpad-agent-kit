@@ -5,7 +5,7 @@ validate:
 	claude plugin validate . --strict
 	claude plugin validate plugins/launchpad --strict
 	claude --plugin-dir ./plugins/launchpad plugin details launchpad >/dev/null
-	bash -n plugins/launchpad/hooks/scripts/*.sh
+	for hook in plugins/launchpad/hooks/scripts/*.sh; do /bin/sh -n "$$hook" || exit 1; done
 
 test:
 	python3 -m unittest discover -s tests -v
