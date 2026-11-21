@@ -45,10 +45,29 @@ Run `python3 scripts/risk.py --input evidence.json`, or pass `--input -` to read
 
 Set an unavailable diff assessment to `null`. Missing, invalid, or inconclusive evidence yields `risk/high`. The classifier writes a single JSON report with `level`, `status`, `agent_config`, and `reasons` after validating it against `schemas/risk.schema.json`. The starter CLI options still accept path and label evidence and yield high risk until the complete input is supplied. The starter Python `classify()` function remains available for local callers using partial evidence.
 
+## Hook contract
+
+The four executable entry points under `plugins/launchpad/hooks/scripts/` implement six Claude Code events. The runtime requires POSIX sh, Python 3.9+, Git and a launcher-controlled PATH. SessionStart also requires authenticated GitHub CLI issue and pull-request read access. See the [Claude Code hooks reference](https://code.claude.com/docs/en/hooks).
+
+The launcher sets `CLAUDE_PROJECT_DIR` to the absolute checkout root and `LP_ISSUE_NUMBER` to the assigned positive issue number. Claude supplies the absolute event `cwd` and `agent_type`, for example `launchpad:implementer`. A workflow using the default agent must explicitly export `LP_AGENT_ROLE` from trusted dispatch configuration. When both identities are present they must agree. Issue text, tool arguments and checked-in files cannot set the role. Repository-scoped roles use the repository name from the launcher's `GITHUB_REPOSITORY`, or the checkout directory name locally.
+
+| Event | Behavior |
+| --- | --- |
+| SessionStart | Supplies a top-level repository map, issue title/body and the latest trusted handoff on the current branch's PR. GitHub text is quoted as data. Secret-like fields are redacted. Missing context, untrusted issue authors and lookup failures return `continue: false`. |
+| PreToolUse Bash | Allows a single literal invocation. Supported commands include scoped Git inspection, explicit file staging, commits, feature-branch creation/push, GitHub issue/PR inspection and PR creation, known test commands and fixed package fetches. Read-only roles can inspect changes. The correctness verifier can also run checks. Shell composition, arbitrary executables, direct network access, destructive Git operations and unrecognized options block with exit 2. |
+| PreToolUse Edit/Write/MultiEdit | Requires a regular in-workspace file path. Checks new files, existing ancestors, symlinks, hard links, protected configuration, secret material, role and branch scope. Implementers and CI fixers use the assigned agent branch. Test engineers may edit tests, planners may edit their milestone plan, and release/incident agents may edit the infra version manifest. A protected configuration change needs an `agent-config` issue. |
+| PostToolUse Edit/Write/MultiEdit | Runs the language formatter on the one authorized file for Go, Rust, Python, TypeScript, JavaScript, CSS and JSON. Formatter failures report a fixed diagnostic. |
+| Stop | Runs format, lint/type and unit checks in changed Go, Rust, Python and JS packages. Without a comparison branch it checks every tracked or modified package. A repository without language manifests must expose `make validate` and `make test`. Missing tools, missing checks, timeouts and failures block completion, including on reentry. |
+| SubagentStop | Requires the final JSON report sections and finding fields defined in `schemas/review.schema.json`, including at least one check performed. Invalid or secret-like reports block completion. |
+
+Hook subprocesses share a 40-second budget per event. The launcher can shorten it with `LP_HOOK_TIMEOUT_SECONDS` (1–40). The registered 50-second host timeout leaves time to stop the subprocess group and emit the hook decision. Diagnostics show rule names or fixed check commands without forwarding raw child output.
+
+Run project-owned checks only in the job sandbox described in `launchpad-meta/specs/12-agentic-system.md` §6.5. Package managers, tests, formatters and Git can execute project code. Hooks constrain the tool invocation. Filesystem isolation, outbound network policy, token permissions and branch protection are enforced by the runner and GitHub.
+
 ## Verify
 
 - `make validate` checks contracts, immutable plugin provenance and dependency wiring, strict Claude manifests, agent/skill discovery, shell syntax, and a clean local plugin load.
-- `make test` runs specialist and skill trigger cases, tool-boundary checks, provenance failure cases, offline-first tooling behavior, and the risk classifier.
+- `make test` runs specialist and skill trigger cases, tool-boundary checks, provenance failure cases, offline-first tooling behavior, hook allow/deny decisions, and the risk classifier.
 - `make verify-provenance` checks every locked commit and component path against GitHub without executing upstream content.
 - For a clean install, set a temporary `CLAUDE_CONFIG_DIR`, install `launchpad` from this marketplace, then run `make verify-install` with the same environment; it checks all installed `gitCommitSha` values against the lock.
 

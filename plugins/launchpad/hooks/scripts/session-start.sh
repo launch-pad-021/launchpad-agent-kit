@@ -1,14 +1,14 @@
-#!/usr/bin/env bash
-# SessionStart: print cheap starting context (stdout becomes context).
-set -uo pipefail
-echo "## Launchpad session context"
-echo "Repo: $(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")  Branch: $(git branch --show-current 2>/dev/null)"
-echo "Rules: read CLAUDE.md, AGENTS.md and the issue first. Conventions: launchpad-meta/specs/03-conventions.md."
-git status --short 2>/dev/null | head -20
-if [ -n "${LP_ISSUE_NUMBER:-}" ] && command -v gh >/dev/null; then
-  echo "### Issue #$LP_ISSUE_NUMBER"
-  gh issue view "$LP_ISSUE_NUMBER" --json title,body -q '.title + "\n" + .body' 2>/dev/null | head -80
-  echo "### Latest handoff note"
-  gh pr list --head "$(git branch --show-current)" --json number -q '.[0].number' 2>/dev/null | xargs -r -I{} gh pr view {} --comments --json comments -q '[.comments[] | select(.body | startswith("### Handoff"))] | last | .body' 2>/dev/null | head -40
+#!/bin/sh
+# Claude treats ordinary nonzero exit codes as non-blocking hook errors.
+hook=${0##*/}
+runtime=$(dirname "$0")/hook.py
+if [ -r "$runtime" ] && command -v python3 >/dev/null 2>&1; then
+    python3 -I -B "$runtime" "$hook"
+    status=$?
+    case $status in 0) exit 0;; 20) exit 2;; esac
 fi
-exit 0
+case $hook in
+    session-start.sh) echo '{"continue":false,"stopReason":"Launchpad hook runtime failed."}';;
+    stop-checks.sh) echo '{"decision":"block","reason":"Launchpad hook runtime failed."}';;
+    *) echo 'Launchpad guard runtime failed.' >&2; exit 2;;
+esac
