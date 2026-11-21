@@ -1,6 +1,6 @@
-# launchpad-agent-kit (starter)
+# launchpad-agent-kit
 
-Claude Code plugin + reusable workflows for building Launchpad with agents. This is the **starter** shipped in the spec pack; milestone **A0** completes it (`launchpad-meta/specs/11-delivery-plan.md`).
+Claude Code plugin, deterministic guardrails, reusable agent workflows, and CI templates for Launchpad.
 
 ## Layout
 ```
@@ -15,6 +15,9 @@ schemas/risk.schema.json               # deterministic risk classifier output
 scripts/risk.py + test_risk.py         # risk rules and regression tests
 .github/workflows/agent-implement.yml  # reusable: implement one issue
 .github/workflows/agent-review.yml     # reusable: risk + parallel reviewers → commit statuses
+.github/workflows/ci-fix.yml           # reusable: bounded repair of a verified failed CI run
+.github/workflows/release.yml          # reusable: release, native multi-arch image, infra PR
+templates/ci-*.yml                     # stable Go/Rust/Python/Node/Next required checks
 ```
 
 ## Adopted plugins (not copied here)
@@ -28,6 +31,14 @@ superpowers, pr-review-toolkit, code-review, security-guidance, feature-dev, fro
 ## Specialist roles
 
 Reviewers inspect supplied diff, test and analysis evidence with read-only tools. The release and incident specialists report a proposed versions.env change and supporting evidence. Their calling workflow owns GitHub writes and deployment gates. The test engineer accepts an assigned branch and caller-enforced test file scope. Reports use the existing reviewer schema.
+
+## Reusable workflow contract
+
+Thin callers pin this repository to an immutable `kit_ref`. Implementer dispatches also pass a nonempty conductor `lease_id`; workflows return that lease and a machine result. Attempts are capped at 3 for implementation, 3 review rounds, and 2 CI fixes. Model calls have explicit turn, budget, and wall-clock limits. Every agent workflow queries the live organization `AGENTS_ENABLED` variable before minting an App token or exposing the model credential. The GitHub App must be configured to read organization variables because the token action has no variables permission-narrowing input.
+
+The caller builds `risk_evidence_json`, `reviewer_evidence_json`, and `merge_evidence_json` from trusted current-head API and Git data, never PR prose. `scripts/select_reviewers.py` emits reviewers in stable §11.2 order. `scripts/merge_gate.py` fails closed unless the six stable checks (`CI / build`, `CI / lint`, `CI / types`, `CI / tests`, `CI / security`, `CI / contracts`), all selected reviews, head freshness, branch freshness, thread state, kill switch, hold state, and risk approval agree. High risk requires developer approval; `agent-config` is always developer-merge-only.
+
+App roles stay separate: developer jobs request contents/PR/issues writes without workflows or administration, reviewer jobs request contents read plus PR/status writes, and the release token is explicitly limited to `launchpad-infra`. Missing secrets, stale heads, forks, held work, exhausted limits, and malformed evidence stop before a writer or merge decision. Live callers must additionally enforce the Apps' installation scope and org-variable access in GitHub.
 
 ## Risk classifier
 
@@ -68,6 +79,7 @@ Run project-owned checks only in the job sandbox described in `launchpad-meta/sp
 
 - `make validate` checks contracts, immutable plugin provenance and dependency wiring, strict Claude manifests, agent/skill discovery, shell syntax, and a clean local plugin load.
 - `make test` runs specialist and skill trigger cases, tool-boundary checks, provenance failure cases, offline-first tooling behavior, hook allow/deny decisions, and the risk classifier.
+- `make audit-workflows` runs the pinned actionlint release and the strict offline zizmor audit. It requires those packages to be available in the Go/uv caches or network access for first resolution.
 - `make verify-provenance` checks every locked commit and component path against GitHub without executing upstream content.
 - For a clean install, set a temporary `CLAUDE_CONFIG_DIR`, install `launchpad` from this marketplace, then run `make verify-install` with the same environment; it checks all installed `gitCommitSha` values against the lock.
 

@@ -1,0 +1,49 @@
+name: CI
+on: [pull_request, push]
+permissions: {contents: read}
+concurrency: {group: "ci-${{ github.repository }}-${{ github.ref }}", cancel-in-progress: true}
+jobs:
+  build:
+    name: CI / build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with: {go-version-file: go.mod, cache: true}
+      - run: go build ./...
+  lint:
+    name: CI / lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: test -z "$(gofmt -l .)" && golangci-lint run ./...
+  types:
+    name: CI / types
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: go vet ./...
+  tests:
+    name: CI / tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: go test -race ./... && go test -cover ./...
+  security:
+    name: CI / security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: govulncheck ./... && gitleaks detect --no-banner && semgrep scan --config p/default && hadolint Dockerfile && trivy fs --exit-code 1 . && actionlint && npx --yes commitlint --from origin/main --to HEAD
+  contracts:
+    name: CI / contracts
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - run: if test -f buf.yaml; then buf lint && buf breaking --against 'https://github.com/${{ github.repository }}.git#branch=main'; else echo 'no proto contracts'; fi
