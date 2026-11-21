@@ -1,4 +1,4 @@
-.PHONY: validate test
+.PHONY: validate test verify-provenance verify-install
 
 validate:
 	python3 scripts/validate_plugin.py
@@ -10,3 +10,9 @@ validate:
 test:
 	python3 -m unittest discover -s tests -v
 	scripts/test-risk.sh
+
+verify-provenance:
+	python3 scripts/verify_provenance.py
+
+verify-install:
+	python3 scripts/verify_install.py

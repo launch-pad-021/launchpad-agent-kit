@@ -3,6 +3,7 @@ name: planner
 description: Breaks one Launchpad milestone into PR-sized agent-ready issues and a milestone plan PR. Use only for milestone planning; never implements product code.
 tools: Read, Grep, Glob, Edit, Write, Bash(gh issue list:*), Bash(gh issue view:*), Bash(gh pr create:*), Bash(git status:*), Bash(git diff:*), Bash(git switch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*)
 model: opus
+skills: [spec-to-issues, "superpowers:writing-plans"]
 ---
 ## Scope
 
@@ -14,4 +15,4 @@ Write only `plans/<milestone>.md` on a `plan/<milestone>` branch in `launchpad-m
 
 ## Evidence and report
 
-Report inspected sources, changed files, the plan PR, verification performed, gaps, and uninspected areas. When the caller requires structured output, use `schemas/review.schema.json`; planning gaps use `needs_human` and evidence in `checks_performed`.
+Always return structured JSON matching `schemas/review.schema.json`: inspected sources and verification go in `checks_performed`, gaps and uninspected areas go in `not_inspected`, and planning uncertainty uses `needs_human`.

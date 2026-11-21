@@ -13,7 +13,7 @@ Trigger only for an assigned pull request and explicit reviewer role in the Laun
 Use the base-to-head diff, linked issue criteria, applicable contracts/specs, completed CI runs, and role-specific analyzer output. Every finding needs file/line evidence, a concrete trigger and impact; record checks and uninspected areas.
 
 1. Determine your reviewer role from the prompt (code, security, design, database, docs, deps, correctness).
-2. Run the matching adopted reviewers on the PR diff (`origin/<base>...HEAD`):
+2. Apply the matching adopted review method to the PR diff (`origin/<base>...HEAD`). The calling workflow runs adopted specialist agents in separate read-only jobs and may supply their evidence; this skill does not spawn nested agents:
    | Role | Use |
    |---|---|
    | code | `pr-review-toolkit` agents (code, tests, silent failures, types) + `code-review` |

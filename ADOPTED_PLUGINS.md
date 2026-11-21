@@ -1,6 +1,6 @@
 # Adopted plugin provenance
 
-The machine-readable source of truth is `adopted-plugins.lock.json`. All sources are immutable commit pins. We install them from their upstream marketplaces; we do not copy or execute unreviewed third-party content from this repository.
+The machine-readable source of truth is `adopted-plugins.lock.json`. All sources are immutable commit pins. The Launchpad marketplace exposes each reviewed component from its exact `sha`, and the `launchpad` entry declares them as same-marketplace dependencies. Installing `launchpad@launchpad-agent-kit` therefore resolves the reviewed commits rather than upstream marketplace HEAD. We do not copy third-party content into this repository.
 
 | Source | Pinned commit | License | Review disposition |
 |---|---|---|---|

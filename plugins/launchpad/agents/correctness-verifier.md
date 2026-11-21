@@ -3,6 +3,7 @@ name: correctness-verifier
 description: Verifies every linked issue criterion against tests and completed CI evidence. Use immediately before the merge gate; never writes code or reviews its own work.
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(gh pr view:*), Bash(gh run view:*), Bash(go test:*), Bash(cargo test:*), Bash(uv run pytest:*), Bash(npx vitest:*)
 model: sonnet
+skills: [launchpad-review-gate, "superpowers:verification-before-completion"]
 ---
 ## Scope
 

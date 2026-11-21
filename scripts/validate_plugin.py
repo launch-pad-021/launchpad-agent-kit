@@ -12,10 +12,17 @@ SKILLS = {"spec-to-issues", "implement-issue", "launchpad-review-gate"}
 REVIEWERS = {"code-reviewer", "correctness-verifier"}
 SHA = re.compile(r"^[0-9a-f]{40}$")
 EXPECTED_COMPONENTS = {
-    "obra/superpowers": {"superpowers"},
-    "anthropics/claude-plugins-official": {"pr-review-toolkit", "code-review", "security-guidance", "feature-dev", "frontend-design", "commit-commands", "skill-creator", "gopls-lsp", "rust-analyzer-lsp", "pyright-lsp", "typescript-lsp"},
-    "trailofbits/skills": {"static-analysis", "variant-analysis", "differential-review", "post-patch-validation", "insecure-defaults", "sharp-edges", "agentic-actions-auditor"},
-    "anthropics/skills": {"webapp-testing"},
+    "obra/superpowers": {"superpowers": "."},
+    "anthropics/claude-plugins-official": {name: f"plugins/{name}" for name in ("pr-review-toolkit", "code-review", "security-guidance", "feature-dev", "frontend-design", "commit-commands", "skill-creator", "gopls-lsp", "rust-analyzer-lsp", "pyright-lsp", "typescript-lsp")},
+    "trailofbits/skills": {name: f"plugins/{name}" for name in ("static-analysis", "variant-analysis", "differential-review", "post-patch-validation", "insecure-defaults", "sharp-edges", "agentic-actions-auditor")},
+    "anthropics/skills": {"webapp-testing": "skills/webapp-testing"},
+}
+AGENT_SKILLS = {
+    "planner": {"spec-to-issues", "superpowers:writing-plans"},
+    "implementer": {"implement-issue", "superpowers:test-driven-development", "superpowers:systematic-debugging", "superpowers:verification-before-completion", "superpowers:receiving-code-review"},
+    "ci-fixer": {"superpowers:systematic-debugging", "superpowers:verification-before-completion"},
+    "code-reviewer": {"launchpad-review-gate"},
+    "correctness-verifier": {"launchpad-review-gate", "superpowers:verification-before-completion"},
 }
 
 
@@ -32,14 +39,14 @@ def frontmatter(path):
     return values, body
 
 
-def classify_skill(prompt):
+def classify_skill(prompt, descriptions):
     """Deterministic smoke classifier for the documented trigger boundaries."""
     value = prompt.lower()
-    if "milestone" in value and ("plan" in value or "issues" in value):
+    if "milestone" in value and ("plan" in value or "issues" in value) and all(word in descriptions.get("spec-to-issues", "").lower() for word in ("milestone", "plan")):
         return "spec-to-issues"
-    if "implement" in value and "issue" in value and ("pull request" in value or "pr" in value):
+    if "implement" in value and "issue" in value and ("pull request" in value or "pr" in value) and all(word in descriptions.get("implement-issue", "").lower() for word in ("implement", "issue", "pr")):
         return "implement-issue"
-    if "review" in value and ("pull request" in value or re.search(r"\bpr\b", value)) and "gate" in value:
+    if "review" in value and ("pull request" in value or re.search(r"\bpr\b", value)) and "gate" in value and all(word in descriptions.get("launchpad-review-gate", "").lower() for word in ("review", "pr", "gate")):
         return "launchpad-review-gate"
     return None
 
@@ -79,6 +86,11 @@ def validate(root):
             errors.append(f"{path.relative_to(root)}: reviewer boundary is not read-only")
         if name not in REVIEWERS and "headless" not in body.lower():
             errors.append(f"{path.relative_to(root)}: missing headless-interaction boundary")
+        declared_skills = {item.strip().strip('"\'') for item in fields.get("skills", "").strip("[]").split(",") if item.strip()}
+        if declared_skills != AGENT_SKILLS.get(name):
+            errors.append(f"{path.relative_to(root)}: skill preload set does not match the approved noninteractive set")
+        if "always return structured json matching `schemas/review.schema.json`" not in body.lower() and "return only json matching `schemas/review.schema.json`" not in body.lower():
+            errors.append(f"{path.relative_to(root)}: structured report is not unconditional")
 
     skill_dir = root / "plugins/launchpad/skills"
     actual_skills = {path.parent.name for path in skill_dir.glob("*/SKILL.md")}
@@ -101,8 +113,9 @@ def validate(root):
 
     try:
         cases = json.loads((root / "tests/fixtures/skill-triggers.json").read_text())
+        descriptions = {name: frontmatter(skill_dir / name / "SKILL.md")[0].get("description", "") for name in actual_skills}
         for case in cases:
-            if classify_skill(case["prompt"]) != case["expected"]:
+            if classify_skill(case["prompt"], descriptions) != case["expected"]:
                 errors.append(f"skill trigger mismatch: {case['prompt']}")
     except (OSError, json.JSONDecodeError, KeyError) as exc:
         errors.append(f"skill trigger fixtures invalid: {exc}")
@@ -110,7 +123,11 @@ def validate(root):
     try:
         lock = json.loads((root / "adopted-plugins.lock.json").read_text())
         documentation = (root / "ADOPTED_PLUGINS.md").read_text()
-        for source in lock.get("sources", []):
+        sources = lock.get("sources", [])
+        repositories = [source.get("repository") for source in sources]
+        if set(repositories) != set(EXPECTED_COMPONENTS) or len(repositories) != len(set(repositories)):
+            errors.append("provenance lock must contain exactly the reviewed repositories once")
+        for source in sources:
             repository = source.get("repository", "")
             commit = source.get("commit", "")
             if not SHA.fullmatch(commit):
@@ -123,15 +140,35 @@ def validate(root):
                 errors.append(f"{repository}: missing license or review notes")
             if source.get("redistributed") is not False:
                 errors.append(f"{repository}: third-party content must not be redistributed")
-            component_names = {component.get("name") for component in source.get("components", [])}
-            if component_names != EXPECTED_COMPONENTS.get(repository):
-                errors.append(f"{repository}: adopted component set does not match the reviewed set")
+            component_mapping = {component.get("name"): component.get("path") for component in source.get("components", [])}
+            if component_mapping != EXPECTED_COMPONENTS.get(repository):
+                errors.append(f"{repository}: adopted component mapping does not match the reviewed set")
             for component in source.get("components", []):
                 if not component.get("name") or not component.get("path"):
                     errors.append(f"{repository}: component missing name or path")
-        if len(lock.get("sources", [])) != 4:
-            errors.append("provenance lock must contain the four adopted upstream sources")
-    except (OSError, json.JSONDecodeError) as exc:
+        marketplace = json.loads((root / ".claude-plugin/marketplace.json").read_text())
+        external_entries = [entry for entry in marketplace["plugins"] if entry["name"] != "launchpad"]
+        entries = {entry["name"]: entry for entry in external_entries}
+        launchpad_entry = next((entry for entry in marketplace["plugins"] if entry["name"] == "launchpad"), {})
+        expected_names = {name for mapping in EXPECTED_COMPONENTS.values() for name in mapping}
+        if set(entries) != expected_names or len(external_entries) != len(entries):
+            errors.append("pinned marketplace entries do not match the adopted component set")
+        if set(launchpad_entry.get("dependencies", [])) != expected_names:
+            errors.append("launchpad dependencies do not match the pinned adopted component set")
+        for source in sources:
+            repository, commit = source["repository"], source["commit"]
+            for component in source["components"]:
+                entry = entries.get(component["name"], {})
+                plugin_source = entry.get("source", {})
+                if repository in {"obra/superpowers", "anthropics/skills"}:
+                    valid = plugin_source == {"source": "github", "repo": repository, "sha": commit}
+                else:
+                    valid = plugin_source == {"source": "git-subdir", "url": repository, "path": component["path"], "sha": commit}
+                if not valid:
+                    errors.append(f"{component['name']}: marketplace source does not consume its reviewed SHA and path")
+                if repository == "anthropics/skills" and entry.get("skills") != ["./skills/webapp-testing"]:
+                    errors.append("webapp-testing: marketplace entry does not expose only the reviewed skill")
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
         errors.append(f"adopted plugin provenance invalid: {exc}")
 
     approved_executables = {

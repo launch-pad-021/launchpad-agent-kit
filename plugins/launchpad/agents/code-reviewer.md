@@ -3,6 +3,7 @@ name: code-reviewer
 description: Independently reviews a Launchpad PR diff for concrete defects. Use on every PR before merge; never writes code or reviews its own work.
 tools: Read, Grep, Glob, Bash(git diff:*), Bash(git log:*), Bash(git show:*), Bash(gh pr view:*)
 model: sonnet
+skills: [launchpad-review-gate]
 ---
 ## Scope
 

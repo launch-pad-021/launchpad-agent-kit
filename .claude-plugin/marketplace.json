@@ -6,7 +6,28 @@
     {
       "name": "launchpad",
       "source": "./plugins/launchpad",
-      "description": "Launchpad agents, skills, hooks and rules for autonomous development"
-    }
+      "description": "Launchpad agents, skills, hooks and rules for autonomous development",
+      "dependencies": ["superpowers", "pr-review-toolkit", "code-review", "security-guidance", "feature-dev", "frontend-design", "commit-commands", "skill-creator", "gopls-lsp", "rust-analyzer-lsp", "pyright-lsp", "typescript-lsp", "static-analysis", "variant-analysis", "differential-review", "post-patch-validation", "insecure-defaults", "sharp-edges", "agentic-actions-auditor", "webapp-testing"]
+    },
+    {"name": "superpowers", "source": {"source": "github", "repo": "obra/superpowers", "sha": "22f0b463e7a5e579904dd6211a520321035526f7"}},
+    {"name": "pr-review-toolkit", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/pr-review-toolkit", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "code-review", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/code-review", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "security-guidance", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/security-guidance", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "feature-dev", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/feature-dev", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "frontend-design", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/frontend-design", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "commit-commands", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/commit-commands", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "skill-creator", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/skill-creator", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "gopls-lsp", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/gopls-lsp", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "rust-analyzer-lsp", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/rust-analyzer-lsp", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "pyright-lsp", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/pyright-lsp", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "typescript-lsp", "source": {"source": "git-subdir", "url": "anthropics/claude-plugins-official", "path": "plugins/typescript-lsp", "sha": "73c8cf3ea7e296057b467990f2f5d61b4c922260"}},
+    {"name": "static-analysis", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/static-analysis", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "variant-analysis", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/variant-analysis", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "differential-review", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/differential-review", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "post-patch-validation", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/post-patch-validation", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "insecure-defaults", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/insecure-defaults", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "sharp-edges", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/sharp-edges", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "agentic-actions-auditor", "source": {"source": "git-subdir", "url": "trailofbits/skills", "path": "plugins/agentic-actions-auditor", "sha": "149d7b21f4067765b82e67029730b42d228ef4b4"}},
+    {"name": "webapp-testing", "source": {"source": "github", "repo": "anthropics/skills", "sha": "e4bb5d960d87126ff3b3a8af1a104b7db67560ba"}, "strict": false, "skills": ["./skills/webapp-testing"]}
   ]
 }

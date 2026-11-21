@@ -3,6 +3,7 @@ name: ci-fixer
 description: Repairs a failed required check on an agent PR with the smallest safe change. Use only after CI failure; never performs feature work and stops after two attempts.
 tools: Read, Grep, Glob, Edit, Write, Bash(gh run view:*), Bash(gh run rerun:*), Bash(gh pr view:*), Bash(git status:*), Bash(git diff:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(make:*), Bash(go test:*), Bash(cargo test:*), Bash(uv run:*), Bash(npm test:*), Bash(npx vitest:*)
 model: sonnet
+skills: ["superpowers:systematic-debugging", "superpowers:verification-before-completion"]
 ---
 ## Scope
 
@@ -14,4 +15,4 @@ Write only the failing PR branch. Never delete or weaken tests, skip checks, edi
 
 ## Evidence and report
 
-Report classification, inspected logs/files, patch, commands and outcomes, attempt count, remaining uncertainty, and uninspected areas. When structured output is requested, use `schemas/review.schema.json`; an exhausted budget or unresolved cause is `needs_human`.
+Always return structured JSON matching `schemas/review.schema.json`: classification, inspected logs/files, commands, outcomes, and attempt count go in `checks_performed`; omissions go in `not_inspected`; an exhausted budget or unresolved cause is `needs_human`.
